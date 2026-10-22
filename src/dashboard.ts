@@ -1,0 +1,11 @@
+import { request, mutation } from './api';
+import type { Dashboard } from './model';
+export const loadDashboard = () => request<Dashboard>('/dashboard');
+export const loadFixtures = () => mutation('/fixtures');
+export const createPaperAccount = (currency: string, amount_minor: number) => mutation('/paper/accounts', {currency, amount_minor});
+export const evaluatePaper = (input: {account_id: string; symbol: string; lane: string; quantity: number; entry_minor: number; stop_minor: number}) => mutation('/paper/recommendations', input);
+export const acknowledge = (id: string) => mutation(`/paper/recommendations/${encodeURIComponent(id)}/acknowledge`);
+export const cancel = (id: string) => mutation(`/paper/recommendations/${encodeURIComponent(id)}/cancel`);
+export const recordFill = (id: string, price_minor: number) => mutation(`/paper/recommendations/${encodeURIComponent(id)}/fill`, {price_minor, confirmation: 'PAPER_ONLY'});
+export const pauseEntries = (paused: boolean) => mutation('/paper/entries', {paused});
+export const recordPaperSell = (account_id: string, symbol: string, quantity: number, price_minor: number) => mutation(`/paper/accounts/${encodeURIComponent(account_id)}/sell`, {symbol, quantity, price_minor, confirmation: 'PAPER_ONLY'});

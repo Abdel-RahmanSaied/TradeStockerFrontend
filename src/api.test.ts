@@ -28,6 +28,14 @@ describe('API boundary', () => {
     await mutation(path,{quantity:1});
     expect(fetch.mock.calls[0][1].headers['Idempotency-Key']).toBe(fetch.mock.calls[1][1].headers['Idempotency-Key']);
   });
+  it('retains the operation key if the response stream disconnects after headers', async () => {
+    const broken = new ReadableStream({start(controller){controller.error(new TypeError('body disconnected'));}});
+    const fetch=vi.fn().mockResolvedValueOnce(new Response(broken,{status:200})).mockResolvedValueOnce(new Response('{"id":"committed"}'));
+    vi.stubGlobal('fetch',fetch);
+    await expect(mutation('/paper/disconnected',{quantity:1})).rejects.toThrow(/uncertain/);
+    await mutation('/paper/disconnected',{quantity:1});
+    expect(fetch.mock.calls[0][1].headers['Idempotency-Key']).toBe(fetch.mock.calls[1][1].headers['Idempotency-Key']);
+  });
   it('handles non-json gateway errors', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('unavailable', {status: 503})));
     await expect(request('/status')).rejects.toThrow('Request failed (503)');

@@ -20,6 +20,14 @@ describe('API boundary', () => {
     await mutation('/paper/ambiguous', {quantity: 3});
     expect(fetch.mock.calls[0][1].headers['Idempotency-Key']).toBe(fetch.mock.calls[1][1].headers['Idempotency-Key']);
   });
+  it.each(['{"id":', 'null', '"untrusted-success"'])('retains retry key for ambiguous HTTP 200 body %s', async (body) => {
+    const fetch = vi.fn().mockResolvedValueOnce(new Response(body,{status:200})).mockResolvedValueOnce(new Response('{"id":"same-commit"}',{status:200}));
+    vi.stubGlobal('fetch',fetch);
+    const path='/paper/truncated-'+body;
+    await expect(mutation(path,{quantity:1})).rejects.toThrow(/response|JSON/i);
+    await mutation(path,{quantity:1});
+    expect(fetch.mock.calls[0][1].headers['Idempotency-Key']).toBe(fetch.mock.calls[1][1].headers['Idempotency-Key']);
+  });
   it('handles non-json gateway errors', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('unavailable', {status: 503})));
     await expect(request('/status')).rejects.toThrow('Request failed (503)');

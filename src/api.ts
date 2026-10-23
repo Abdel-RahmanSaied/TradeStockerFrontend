@@ -10,8 +10,14 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     headers: { Accept: 'application/json', ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}), ...init.headers },
     signal: init.signal ?? AbortSignal.timeout(15000),
   });
-  const body = await response.json().catch(() => null);
+  let body: any;
+  try { body = await response.json(); }
+  catch {
+    if (!response.ok) throw new ApiError(response.status, `Request failed (${response.status})`);
+    throw new Error('The API response was incomplete or invalid JSON. The result is uncertain; retry preserves the same operation key.');
+  }
   if (!response.ok) throw new ApiError(response.status, typeof body?.error === 'string' ? body.error : body?.error?.message ?? body?.message ?? `Request failed (${response.status})`);
+  if (body === null || typeof body !== 'object') throw new Error('The API response shape is invalid. The result is uncertain; retry preserves the same operation key.');
   return body as T;
 }
 // Keep an ambiguous operation's key in memory so retry cannot duplicate its effect.

@@ -53,3 +53,20 @@ export function freshness(value: string | undefined, maxAgeSeconds = 300, now = 
   const age = (now - Date.parse(value)) / 1000;
   return age < -5 ? 'future' : age > maxAgeSeconds ? 'stale' : 'fresh';
 }
+
+export async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(n => n.toString(16).padStart(2, '0')).join('');
+}
+// Fetch original source bytes and refuse them unless they match the recorded hash.
+export async function fetchVerified(path: string, expectedHash: string): Promise<ArrayBuffer> {
+  const response = await fetch(`/api/v1${path}`, {headers: {Accept: 'application/json', Authorization: `Bearer ${sessionToken}`}, signal: AbortSignal.timeout(30000)});
+  if (!response.ok) throw new ApiError(response.status, `Source download failed (${response.status})`);
+  const bytes = await response.arrayBuffer();
+  if (await sha256Hex(bytes) !== expectedHash) throw new Error('Source hash verification failed. Download cancelled.');
+  return bytes;
+}
+export async function downloadJSON(path: string, filename: string, expectedHash: string) {
+  const bytes = await fetchVerified(path, expectedHash);
+  const url = URL.createObjectURL(new Blob([bytes], {type: 'application/json'}));
+  const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
